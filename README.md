@@ -1,7 +1,7 @@
 # Stock-Prediction-Meets-LLM-Knowledge-Graph-Augmented-Generation-with-Bias-free-Inference
 
 
-Please download the news and knowledge data from hugging face https://huggingface.co/datasets/seraveea/NASDAQ100_knowledge_graph_in_2024_Jan2Jun
+The news will be released after the double-blind review process.
 ```
 # Our methods
 python scripts/graph_exp.py --result_path 'output/reply/temp_walk.pkl' --style 'indirect'
