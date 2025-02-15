@@ -4,7 +4,7 @@
 The news will be released after the double-blind review process.
 ```
 # Our methods
-python scripts/graph_exp.py --result_path 'output/reply/temp_walk.pkl' --style 'indirect'
+python scripts/graph_exp.py --result_path 'output/reply/temp_walk.pkl' --backbone 'llama3' --model_name temp_walk --style 'indirect'
 
 # Baselines: LLaMA3+GCS
 python scripts/nograph_exp.py --result_path 'output/reply/llama3_gcs.pkl' --backbone 'llama3' --model_name GCS --style 'direct'
