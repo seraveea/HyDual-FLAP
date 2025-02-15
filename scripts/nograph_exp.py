@@ -4,6 +4,7 @@ from tqdm import tqdm
 import argparse
 import torch
 import transformers
+from openai import OpenAI
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import os
 import sys
@@ -11,14 +12,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.noGraph_RAG import vanilla_RAG
 from models.FinGPT import FinGPT_forecaster
 from datasets.utils.logging import disable_progress_bar
-from utils import format_date, get_trading_days, Bert_embeder, x_month_ago, argument_keyword
+from utils import format_date, get_trading_days, Bert_embeder, x_month_ago, argument_keyword, get_first_and_last_trading_days
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 disable_progress_bar()
 # max_memory_mapping = {3: "10GB", 4: "10GB", 5: "10GB"}
 
+
 def ll3_instance(args):
-    model_dir = "your llama3 model location"
+    model_dir = "/export/data/RA_Work/seraveea/llama3/Meta-Llama-3-8B-Instruct_hf"
     pipeline = transformers.pipeline(
         "text-generation",
         model=model_dir,
@@ -28,10 +30,19 @@ def ll3_instance(args):
     return pipeline
 
 
+def ds_instance(args):
+    # Load model directly
+    pipeline = transformers.pipeline("text-generation",
+                                     model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+                                     torch_dtype=torch.float16,
+                                     device_map=args.device)
+    return pipeline
+
+
 def fingpt_instance(args):
     from peft import PeftModel
     base_model = AutoModelForCausalLM.from_pretrained(
-        'your llama2-7b location',
+        '/export/data/RA_Work/seraveea/Llama-2-7b-chat-hf',
         trust_remote_code=True,
         device_map=args.device,
         # max_memory=max_memory_mapping,
@@ -54,6 +65,8 @@ def main(args):
         llm = fingpt_instance(args).eval()
     elif args.backbone == 'gpt4o':
         llm = args.backbone
+    elif args.backbone == 'deepseek':
+        llm = ds_instance(args)
     else:
         # if no backbone specified
         llm = 'no model'
@@ -79,8 +92,13 @@ def main(args):
             elif args.model_name == 'GCS':
                 result, retrieved_doc = rag_agent.gcs_reply(symbol, trading_day, sub_dataset,
                                                             int(args.topk), args.backbone)
+            elif args.model_name == 'TempRALM':
+                result, retrieved_doc = rag_agent.gcs_reply(symbol, trading_day, sub_dataset,
+                                                            int(args.topk), args.backbone)
+
             else:
-                result, retrieved_doc = None, None
+                result, retrieved_doc = rag_agent.random_reply(symbol, trading_day, sub_dataset, int(args.topk),
+                                                               args.backbone)
             result_df_list.append(result)
             doc_dict_list.append(retrieved_doc)
     rag_agent.log_time(args.runtime_recording_path)
@@ -102,20 +120,20 @@ def parse_args():
     parser.add_argument('--model_name', default='RAG')
     parser.add_argument('--lookback', default=1)
     parser.add_argument('--backbone', default='llama3',
-                        help='several mode, llama3/gpt4o/fingpt/no model')
-    parser.add_argument('--result_path', default='',
+                        help='several mode, llama3/GPT/FinPTForecaster/deepseek/no model')
+    parser.add_argument('--result_path', default='output/DeepSeek/nograph_summary_rag_Q1.pkl',
                         help='the path of saving llm reply result')
-    parser.add_argument('--doc_path', default='',
+    parser.add_argument('--doc_path', default='output/retrieval_only/nograph_summary_rag_doc_Q1.pkl',
                         help='the path of saving retrieved file list')
     parser.add_argument('--source_path', default='data/new_llama3/nasdaq_summary24.pkl',
                         help='the path of doc pools')
     parser.add_argument('--ts_path', default='data/nasdaq_ts_2024.pkl')
     parser.add_argument('--summary_path', default='data/ndx100_business_summary.pkl',
                         help='the path of static knowledge')
-    parser.add_argument('--runtime_recording_path', default='')
+    parser.add_argument('--runtime_recording_path', default='logs/gcs_run_time.log')
     parser.add_argument('--device', default="cuda:0")
     parser.add_argument('--topk', default=10)
-    parser.add_argument('--style', default='direct')
+    parser.add_argument('--style', default='indirect3')
     parser.add_argument('--preload_doc_path', default=False)
 
     args = parser.parse_args()

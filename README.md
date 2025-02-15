@@ -23,4 +23,20 @@ python scripts/nograph_exp.py --result_path 'output/reply/fingpt_gcs.pkl' --back
 
 # Baselines: FinGPT+DPR
 python scripts/nograph_exp.py --result_path 'output/reply/fingpt_rag.pkl' --backbone 'fingpt' --model_name RAG --style 'direct'
+
+# Baselines: DeepSeek+GCS
+python scripts/nograph_exp.py --result_path 'output/reply/fingpt_gcs.pkl' --backbone 'deepseek' --model_name GCS --style 'direct'
+
+# Baselines: DeepSeek+DPR
+python scripts/nograph_exp.py --result_path 'output/reply/fingpt_rag.pkl' --backbone 'deepseek' --model_name RAG --style 'direct'
+
+# Baselines: GraphRAG
+python scripts/graph_exp.py --result_path 'output/reply/graph_RAG.pkl' --backbone 'llama3' --model_name RAG --style 'direct'
+
+# Baselines: TempRALM
+python scripts/nograph_exp.py --result_path 'output/reply/tempralm.pkl' --backbone 'llama3' --model_name TempRALM --style 'direct'
+
+
+
+
 ```
