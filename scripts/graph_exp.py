@@ -14,7 +14,6 @@ from utils import (pd_format_date, get_trading_days, map_dates_to_values, Bert_e
 
 sys.path.insert(0, sys.path[0] + "/../")
 from models.Graph_RAG import graph_rag
-from models.random_walk_RAG import random_walk_rag
 from models.temp_walk_RAG import temporal_walk_rag
 from models.FinGPT import FinGPT_forecaster
 
@@ -27,23 +26,25 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
 def ll3_instance(args):
-    model_dir = "/export/data/RA_Work/seraveea/llama3/Meta-Llama-3-8B-Instruct_hf"
+    model_dir = "[llama3 model path]"
     pipeline = transformers.pipeline("text-generation", model=model_dir,
                                      torch_dtype=torch.float16, device_map=args.device)
     return pipeline
 
 
-def deepseek_instance(args):
-    with open('scripts/DeepSeek_API.txt', 'r') as file:
-        api_key = file.read().strip()
-    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
-    return client
+def ds_instance(args):
+    # Load model directly
+    pipeline = transformers.pipeline("text-generation",
+                                     model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+                                     torch_dtype=torch.float16,
+                                     device_map=args.device)
+    return pipeline
 
 
 def fingpt_instance(args):
     from peft import PeftModel
     base_model = AutoModelForCausalLM.from_pretrained(
-        '/export/data/RA_Work/seraveea/Llama-2-7b-chat-hf',
+        '[llama2 model path]',
         trust_remote_code=True,
         # max_memory=max_memory_mapping,
         device_map=args.device,
@@ -71,9 +72,7 @@ def main(args):
     maper = pd.read_csv('data/nasdaq_dict.csv')
     ts = pd.read_pickle(args.ts_path)
     summary = pd.read_pickle(args.summary_path)
-    if args.model_name == 'random_walk':
-        rag_agent = random_walk_rag(llm, ts, summary, maper, bert_embeder, args.preload_doc_path, style=args.style)
-    elif args.model_name == 'temp_walk':
+    if args.model_name == 'temp_walk':
         rag_agent = temporal_walk_rag(llm, ts, summary, maper, bert_embeder, args.preload_doc_path, style=args.style)
     else:  # not running sampling methods
         if args.backbone == 'fingpt':
@@ -89,19 +88,10 @@ def main(args):
         # here we add static knowledge, default published time is the first day of start_day
         static_knowledge['published time'] = start_day
         date_dict = map_dates_to_values(start_day, trading_day, 64)
-        # for symbol in tqdm(['AAPL', 'MSFT', 'AMZN', 'NVDA', 'META'], leave=False):
         for symbol in tqdm(maper['symbol'].tolist(), leave=False):
             if args.model_name == 'RAG':
                 result, retrieved_doc = rag_agent.graph_rag_reply(symbol, trading_day, sub_dataset, static_knowledge,
                                                                   int(args.topk), args.backbone)
-            elif args.model_name == 'GCS':
-                result, retrieved_doc = rag_agent.graph_gcs_reply(symbol, trading_day, sub_dataset, static_knowledge,
-                                                                  int(args.topk), args.backbone)
-            elif args.model_name == 'random_walk':
-                result, retrieved_doc = rag_agent.random_walk_reply(symbol, trading_day,
-                                                                    sub_dataset, static_knowledge,
-                                                                    date_dict, int(args.topk), args.backbone,
-                                                                    int(args.topk) // 2)  # half reserve for event
             elif args.model_name == 'temp_walk':
                 result, retrieved_doc = rag_agent.temporal_walk_reply(symbol, trading_day,
                                                                       sub_dataset, static_knowledge,

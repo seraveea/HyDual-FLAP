@@ -9,7 +9,7 @@ from scripts.utils import *
 class FinGPT_forecaster(graph_rag):
     def __init__(self, client, time_series, summary, maper, embeder, style):
         super().__init__(client, time_series, summary, maper, embeder, preload_doc_path=False, style=style)
-        self.tokenizer = AutoTokenizer.from_pretrained('/export/data/RA_Work/seraveea/Llama-2-7b-chat-hf')
+        self.tokenizer = AutoTokenizer.from_pretrained('llama2 location')
 
     def rag_reply(self, symbol, date, sub_dataset, topk, backbone, **kwargs):
         query = self.default_query(symbol, date)

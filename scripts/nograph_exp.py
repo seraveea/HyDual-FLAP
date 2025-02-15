@@ -97,8 +97,7 @@ def main(args):
                                                             int(args.topk), args.backbone)
 
             else:
-                result, retrieved_doc = rag_agent.random_reply(symbol, trading_day, sub_dataset, int(args.topk),
-                                                               args.backbone)
+                result, retrieved_doc = None, None
             result_df_list.append(result)
             doc_dict_list.append(retrieved_doc)
     rag_agent.log_time(args.runtime_recording_path)
