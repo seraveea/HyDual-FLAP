@@ -112,71 +112,71 @@ def assign_ground_truth(exp_result, ts_2024):
 if __name__ == "__main__":
     mode = 'digit'  # 'onehot' or 'digit'
     # Load the dataset
-    file_name = "output/eng/HF.parquet"
-    exp_result = pd.read_parquet(file_name)
-    if 'chn' in file_name:
-        flag = 'CHN'
-    else:
-        flag = 'USA'
-
-    if flag == 'CHN':
-        ts_2024 = pd.read_pickle('data/csi100_ts_2024.pkl')
-    else:
-        ts_2024 = pd.read_pickle('data/nasdaq_ts_2024.pkl')
-    if mode == 'onehot':
-        processed = process_result_onehot(exp_result)
-    else:
-        processed = process_result(exp_result)
-
-    if flag == 'CHN':
-        ts_2024['Date'] = ts_2024['Date'].apply(lambda x: x.strftime('%Y-%m-%d'))
-    processed = assign_ground_truth(processed, ts_2024)
-    experiment_result = processed.set_index(['date', 'symbol'])
-    date_list = list(set([x[0] for x in experiment_result.index.tolist()]))
-    experiment_result = experiment_result.reset_index()
-    date_list.sort()
-    if mode == 'onehot':
-        feature_columns = []
-        for col in ['Market Share', 'Company Strategies', 'Products Performance', 'Industry Status','Investor Sentiment', 'Stock Risk', 'Competitor Status', 'Supplier Status', 'Innovation Sustainability']:
-            feature_columns += [f"{col}_pos", f"{col}_neg", f"{col}_neu"]
-    else:
-        feature_columns = ['Market Share_digit', 'Company Strategies_digit', 'Products Performance_digit',
-                        'Industry Status_digit', 'Investor Sentiment_digit', 'Stock Risk_digit',
-                        'Competitor Status_digit', 'Supplier Status_digit', 'Innovation Sustainability_digit']
-    experiment_result['mc_gt'] = experiment_result['ground_truth'].apply(lambda x: helper(x))
-    gt_list = []
-    pred = []
-    model = RandomForestClassifier(max_depth=2, random_state=42)
-
-
-    lookback = 1
-    for i in tqdm(range(lookback, len(date_list))):
-        x_train = experiment_result[experiment_result['date'] == date_list[i - 1]][feature_columns]
-        y_train = experiment_result[experiment_result['date'] == date_list[i - 1]]['mc_gt']
-        # x_train = experiment_result[experiment_result['date'].isin(date_list[i-lookback:i])][feature_columns]
-        # y_train = experiment_result[experiment_result['date'].isin(date_list[i-lookback:i])]['mc_gt'].tolist()
-        model.fit(x_train, y_train)  # only fit one-day result
-        x_test = experiment_result[experiment_result['date'] == date_list[i]][feature_columns]
-        current_gt = experiment_result[experiment_result['date'] == date_list[i]]['mc_gt'].tolist()
-        gt_list += current_gt
-        predictions = model.predict(x_test).tolist()
-        pred += predictions
-        experiment_result.loc[experiment_result['date'] == date_list[i], 'mc_pred'] = predictions
-
-    accuracy = accuracy_score(gt_list, pred)
-    f1 = f1_score(gt_list, pred, average='weighted')
-    print("Multi-class Accuracy:", accuracy)
-    print("Multi-class F1 Score:", f1)
-
-    if mode == 'onehot':
-        if flag == 'CHN':
-            preds_name = 'preds/chn/' + file_name.split('/')[-1].replace('.parquet', '_preds_onehot.csv')
+    for file_name in tqdm(["output/chn/HF_chn.parquet", "output/eng/HF.parquet"]):
+        exp_result = pd.read_parquet(file_name)
+        if 'chn' in file_name:
+            flag = 'CHN'
         else:
-            preds_name = 'preds/eng/' + file_name.split('/')[-1].replace('.parquet', '_preds_onehot.csv')
-    else:
+            flag = 'USA'
+
         if flag == 'CHN':
-            preds_name = 'preds/chn/' + file_name.split('/')[-1].replace('.parquet', '_preds.csv')
+            ts_2024 = pd.read_pickle('data/csi100_ts_2024.pkl')
         else:
-            preds_name = 'preds/eng/' + file_name.split('/')[-1].replace('.parquet', '_preds.csv')
-    preds_file = experiment_result[['date', 'symbol', 'mc_gt', 'mc_pred']]
-    preds_file.to_csv(preds_name, index=False)
+            ts_2024 = pd.read_pickle('data/nasdaq_ts_2024.pkl')
+        if mode == 'onehot':
+            processed = process_result_onehot(exp_result)
+        else:
+            processed = process_result(exp_result)
+
+        if flag == 'CHN':
+            ts_2024['Date'] = ts_2024['Date'].apply(lambda x: x.strftime('%Y-%m-%d'))
+        processed = assign_ground_truth(processed, ts_2024)
+        experiment_result = processed.set_index(['date', 'symbol'])
+        date_list = list(set([x[0] for x in experiment_result.index.tolist()]))
+        experiment_result = experiment_result.reset_index()
+        date_list.sort()
+        if mode == 'onehot':
+            feature_columns = []
+            for col in ['Market Share', 'Company Strategies', 'Products Performance', 'Industry Status','Investor Sentiment', 'Stock Risk', 'Competitor Status', 'Supplier Status', 'Innovation Sustainability']:
+                feature_columns += [f"{col}_pos", f"{col}_neg", f"{col}_neu"]
+        else:
+            feature_columns = ['Market Share_digit', 'Company Strategies_digit', 'Products Performance_digit',
+                            'Industry Status_digit', 'Investor Sentiment_digit', 'Stock Risk_digit',
+                            'Competitor Status_digit', 'Supplier Status_digit', 'Innovation Sustainability_digit']
+        experiment_result['mc_gt'] = experiment_result['ground_truth'].apply(lambda x: helper(x))
+        gt_list = []
+        pred = []
+        model = RandomForestClassifier(max_depth=2, random_state=42)
+
+
+        lookback = 1
+        for i in tqdm(range(lookback, len(date_list))):
+            x_train = experiment_result[experiment_result['date'] == date_list[i - 1]][feature_columns]
+            y_train = experiment_result[experiment_result['date'] == date_list[i - 1]]['mc_gt']
+            # x_train = experiment_result[experiment_result['date'].isin(date_list[i-lookback:i])][feature_columns]
+            # y_train = experiment_result[experiment_result['date'].isin(date_list[i-lookback:i])]['mc_gt'].tolist()
+            model.fit(x_train, y_train)  # only fit one-day result
+            x_test = experiment_result[experiment_result['date'] == date_list[i]][feature_columns]
+            current_gt = experiment_result[experiment_result['date'] == date_list[i]]['mc_gt'].tolist()
+            gt_list += current_gt
+            predictions = model.predict(x_test).tolist()
+            pred += predictions
+            experiment_result.loc[experiment_result['date'] == date_list[i], 'mc_pred'] = predictions
+
+        accuracy = accuracy_score(gt_list, pred)
+        f1 = f1_score(gt_list, pred, average='weighted')
+        print("Multi-class Accuracy:", accuracy)
+        print("Multi-class F1 Score:", f1)
+
+        if mode == 'onehot':
+            if flag == 'CHN':
+                preds_name = 'preds/chn/' + file_name.split('/')[-1].replace('.parquet', '_preds_onehot.csv')
+            else:
+                preds_name = 'preds/eng/' + file_name.split('/')[-1].replace('.parquet', '_preds_onehot.csv')
+        else:
+            if flag == 'CHN':
+                preds_name = 'preds/chn/' + file_name.split('/')[-1].replace('.parquet', '_preds.csv')
+            else:
+                preds_name = 'preds/eng/' + file_name.split('/')[-1].replace('.parquet', '_preds.csv')
+        preds_file = experiment_result[['date', 'symbol', 'mc_gt', 'mc_pred']]
+        preds_file.to_csv(preds_name, index=False)

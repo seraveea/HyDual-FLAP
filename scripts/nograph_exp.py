@@ -98,7 +98,7 @@ def parse_args():
     parser.add_argument('--model_name', default='GCS')
     parser.add_argument('--lookback', default=1)
     parser.add_argument('--backbone', default='llama3',
-                        help='several mode, llama3/GPT/FinPTForecaster/deepseek/chatqa/selfrag/no model')
+                        help='several mode, llama3/GPT/FinPTForecaster/deepseek/chatqa/no model')
     parser.add_argument('--result_path', default='output/nograph_summary_GCS_Q1.pkl',
                         help='the path of saving llm reply result')
     parser.add_argument('--doc_path', default='output/retrieval_only/nograph_summary_GCS_doc_Q1.pkl',
