@@ -2,27 +2,82 @@ from pandas_market_calendars import get_calendar
 from datetime import datetime, timedelta
 import numpy as np
 import pandas as pd
+import os
 import random
 import torch
+import transformers
+os.environ["DISABLE_TQDM"] = "1"
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from dateutil.relativedelta import relativedelta
 from transformers import BertTokenizer, BertModel
+from transformers import AutoTokenizer, AutoModel
 from torch import tensor
+
+
+os.environ["HF_HOME"] = "[your cache path here]"
+huggingface_cache_path = "[your cache path here]"
+os.environ['HF_HUB_OFFLINE'] = '1'
 
 
 def x_month_ago(date_str, month_num=1):
     date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-
     x_month_ago_date = date_obj - relativedelta(months=month_num)
-
     return x_month_ago_date.strftime("%Y-%m-%d")
+
+def ll3_instance(args):
+    model_dir = "[your cache path here]/llama3-8b-instruct"
+    pipeline = transformers.pipeline(
+        "text-generation",
+        model=model_dir,
+        torch_dtype=torch.float16,
+        device_map=args.device,
+    )
+    return pipeline
+
+def ds_instance(args):
+    # Load model directly
+    model_dir = "[your cache path here]/deepseek-r1-distill-llama-8B"
+    pipeline = transformers.pipeline(
+        "text-generation",
+        model=model_dir,
+        torch_dtype=torch.float16,
+        device_map=args.device,
+    )
+    return pipeline
+
+def fingpt_instance(args):
+    from peft import PeftModel
+    base_model = AutoModelForCausalLM.from_pretrained(
+        '[your cache path here]/llama2-7b-chat-hf',
+        trust_remote_code=True,
+        device_map=args.device,
+        torch_dtype=torch.float16,
+    )
+    return PeftModel.from_pretrained(
+        base_model,
+        '[your cache path here]/fingpt-forecaster_dow30'
+    )
+
+def chatqa_instance(args):
+    # Load model directly
+    model_dir = "[your cache path here]/Llama3-ChatQA-1.5-8B"
+    
+    pipeline = transformers.pipeline(
+        "text-generation",
+        model=model_dir,
+        torch_dtype=torch.float16,
+        device_map=args.device,
+    )
+    return pipeline
 
 
 class Bert_embeder:
     def __init__(self):
         random_seed = 42
         random.seed(random_seed)
-        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased', cache_dir='hugging_face_cache')
-        self.model = BertModel.from_pretrained('bert-base-uncased', cache_dir='hugging_face_cache')
+        model_path = '[your cache path here]/bert-uncased'
+        self.tokenizer = BertTokenizer.from_pretrained(model_path)
+        self.model = BertModel.from_pretrained(model_path)
 
     def embed(self, text):
         encoding = self.tokenizer.batch_encode_plus(
@@ -47,6 +102,32 @@ class Bert_embeder:
         return word_embeddings
 
 
+class BGE_embeder:
+    def __init__(self, device):
+        model_path = '[your cache path here]/bge-large-zh-v1.5'
+        random_seed = 42
+        random.seed(random_seed)
+        self.device = device
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path)
+        self.model = AutoModel.from_pretrained(model_path).to(self.device)
+
+    def embed(self, text):
+        text = text[:512]
+        encoding = self.tokenizer(
+            text, padding=True,
+            truncation=True,  # Truncate to the maximum sequence length if necessary
+            return_tensors='pt',  # Return PyTorch tensors
+            add_special_tokens=True  # Add special tokens CLS and SEP
+        ).to(self.device)
+        with torch.no_grad():
+            model_output = self.model(**encoding)
+            # Use the [CLS] token embedding for each input
+            sentence_embeddings = model_output[0][:, 0, :]
+            word_embeddings = torch.nn.functional.normalize(sentence_embeddings, p=2, dim=1)
+            word_embeddings = word_embeddings.cpu().numpy().squeeze()
+        return word_embeddings
+
+
 def map_vector(x):
     x['vector'] = np.array(x['vector'])
     return x
@@ -55,6 +136,10 @@ def map_vector(x):
 def format_date(x):
     date_obj = datetime.strptime(x['published time'], "%Y%m%d")
     x['published time'] = date_obj.strftime("%Y-%m-%d")
+    return x
+
+def format_symbol(x):
+    x['symbol'] = x['symbol'].strip("'")
     return x
 
 
@@ -113,12 +198,16 @@ def analyze_doc(doc_list):
     return content
 
 
-def get_trading_days(start_date, end_date):
+def get_trading_days(start_date, end_date, language):
     # Load the US stock market calendar
     us_calendar = get_calendar('XNYS')
+    cn_calendar = get_calendar('XSHG')
 
-    # Generate the trading days between the specified start and end dates
-    trading_days = us_calendar.schedule(start_date=start_date, end_date=end_date)
+    if language == 'zh':
+        trading_days = cn_calendar.schedule(start_date=start_date, end_date=end_date)
+    else:
+        # Generate the trading days between the specified start and end dates
+        trading_days = us_calendar.schedule(start_date=start_date, end_date=end_date)
 
     # Extract the trading days and format them as strings in the desired format
     trading_day_strings = [day.strftime('%Y-%m-%d') for day in trading_days.index]
@@ -179,7 +268,6 @@ def deal_with_nan(x):
 
 def positional_encoding(position, d_model):
     position_encoding = np.zeros((position, d_model))
-
     for pos in range(position):
         for i in range(0, d_model, 2):
             angle = pos / np.power(10000, (2 * i) / np.float32(d_model))
@@ -191,7 +279,6 @@ def positional_encoding(position, d_model):
 
 def log_positional_encoding(position, d_model):
     position_encoding = np.zeros((position, d_model))
-
     for pos in range(position):
         nonlinear_pos = np.log(pos + 1)
         for i in range(0, d_model, 2):
@@ -240,23 +327,41 @@ def map_dates_to_valuesv2(start_date, end_date, d_model):
     return normalized_l2_distance_dict
 
 
-def generate_prompt_ll3(doc_list, date, symbol, ts):
-    if len(doc_list) == 0:
-        return ''
-    else:
-        sentences_list = [f"<Target Company>: {symbol}; <DATE>{date}; <NEWS>:\n"]
-        if 'Title' in doc_list[0].keys():
-            for docu in doc_list:
-                temp = f"""<date>{docu['published time']}</date><doc>Title: {docu['Title']}\n
-                Description: {docu['Description']}\nLong Description: {docu['Long description']}</doc>
-                """
-                sentences_list.append(temp)
+def generate_prompt_ll3(doc_list, date, symbol, ts, lanaguage):
+    if lanaguage == 'zh':
+        if len(doc_list) == 0:
+            return ''
         else:
-            for docu in doc_list:
-                temp = f"<date>{docu['published time']}</date><doc>{deal_with_nan(docu['one_sentence'])}<\doc>\n"
-                sentences_list.append(temp)
-        # sentences_list.append(f'<TS>{ts}</TS>')
-        return ' '.join(sentences_list)
+            sentences_list = [f"<目标公司>: {symbol}; <日期>{date}; <新闻>:\n"]
+            if 'Title' in doc_list[0].keys():
+                for docu in doc_list:
+                    temp = f"""<date>{docu['published time']}</date><doc>标题: {docu['Title']}\n
+                    新闻内容: {docu['content']}</doc>
+                    """
+                    sentences_list.append(temp)
+            else:
+                for docu in doc_list:
+                    temp = f"<date>{docu['published time']}</date><doc>{deal_with_nan(docu['one_sentence'])}<\doc>\n"
+                    sentences_list.append(temp)
+            # sentences_list.append(f'<TS>{ts}</TS>')
+            return ' '.join(sentences_list)
+    else:
+        if len(doc_list) == 0:
+            return ''
+        else:
+            sentences_list = [f"<Target Company>: {symbol}; <DATE>{date}; <NEWS>:\n"]
+            if 'Title' in doc_list[0].keys():
+                for docu in doc_list:
+                    temp = f"""<date>{docu['published time']}</date><doc>Title: {docu['Title']}\n
+                    Description: {docu['Description']}\nLong Description: {docu['Long description']}</doc>
+                    """
+                    sentences_list.append(temp)
+            else:
+                for docu in doc_list:
+                    temp = f"<date>{docu['published time']}</date><doc>{deal_with_nan(docu['one_sentence'])}<\doc>\n"
+                    sentences_list.append(temp)
+            # sentences_list.append(f'<TS>{ts}</TS>')
+            return ' '.join(sentences_list)
 
 
 def documents_prompt_ll3(doc_list):

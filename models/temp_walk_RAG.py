@@ -1,5 +1,6 @@
 import pandas as pd
 import random
+from collections import Counter
 from .Graph_RAG import graph_rag
 import uuid
 import time
@@ -13,14 +14,14 @@ from scripts.utils import generate_prompt_ll3
 
 
 class temporal_walk_rag(graph_rag):
-    def __init__(self, client, time_series, summary, maper, embeder, preload_doc_path, style):
-        super().__init__(client, time_series, summary, maper, embeder, preload_doc_path, style)
+    def __init__(self, client, time_series, summary, maper, embeder, preload_doc_path, style, language):
+        super().__init__(client, time_series, summary, maper, embeder, preload_doc_path, style, language)
         self.graph = None
         self.stat_dict = None
         self.num_rw = 100  # the total number of random walk
         self.depth_rw = 10  # the depth of one random walk
 
-    def temporal_walk_reply(self, symbol, date, sub_dataset, static_data, time_dict, topk, backbone, reserve_for_event=5):
+    def temporal_walk_reply(self, symbol, date, sub_dataset, static_data, time_dict, topk):
         # **********
         start_time = time.time()
         # **********
@@ -40,9 +41,9 @@ class temporal_walk_rag(graph_rag):
         else:
             sub_dataset['uuid'] = sub_dataset['published time'].apply(lambda x: uuid.uuid4())
             static_data['uuid'] = static_data['published time'].apply(lambda x: uuid.uuid4())
-            separate_dict = self.random_walk(symbol, sub_dataset, static_data, time_dict, date, reserve_for_event, topk)
+            separate_dict = self.random_walk(symbol, sub_dataset, static_data, time_dict, date, topk)
         time_series, ground_truth = self.find_ground_truth(symbol, date)
-        retrieval_prompt = generate_prompt_ll3(separate_dict, date, symbol, time_series)
+        retrieval_prompt = generate_prompt_ll3(separate_dict, date, symbol, time_series, self.language)
         # **********
         end_time = time.time()
         run_time = end_time - start_time
@@ -55,7 +56,7 @@ class temporal_walk_rag(graph_rag):
         else:
             return self.client_reply(retrieval_prompt, symbol, date, ground_truth, separate_dict)
 
-    def random_walk(self, symbol, data, static_data, time_dict, date, reserve_for_event, topk):
+    def random_walk(self, symbol, data, static_data, time_dict, date, topk):
         """
         :param topk: how many documents retrieved
         :param reserve_for_event: how many documents for node itself
@@ -86,6 +87,12 @@ class temporal_walk_rag(graph_rag):
         static_data['score_weight'] = 1.001 - static_data['l2_distance']
         static_data['time_weight'] = data['time_weight'].mean()
         static_data['weight'] = 0.5*static_data['time_weight']+0.5*static_data['score_weight']
+        # -------------------------7/3----------------------------------------------
+        # data['weight'] = 0.7*data['time_weight']+0.3*data['score_weight']  # 0~2
+        # static_data['weight'] = 0.7*static_data['time_weight']+0.3*static_data['score_weight']
+        # -------------------------3/7----------------------------------------------
+        # data['weight'] = 0.3*data['time_weight']+0.7*data['score_weight']  # 0~2
+        # static_data['weight'] = 0.3*static_data['time_weight']+0.7*static_data['score_weight']
 
         tkg = nx.MultiGraph()
         for index, row in static_data.iterrows():
@@ -133,9 +140,9 @@ class temporal_walk_rag(graph_rag):
                 # 20% percentage to break and return current path
                 break
             else:
-                neighbors = list(graph.neighbors(current_node))
+                neighbors = list(graph.neighbors(current_node))  
                 if previous_node is not None:
-                    neighbors.remove(previous_node)
+                    neighbors.remove(previous_node)  
                 if not neighbors:
                     break  # No more neighbors to visit
                 edges = [list(graph.get_edge_data(neighbor, current_node).values()) for neighbor in neighbors]
@@ -158,6 +165,7 @@ class temporal_walk_rag(graph_rag):
         for edges in weights:
             for edge in edges:
                 total += edge['weight']
+        # total = sum([w['weight'] for w in weights])
         r = random.uniform(0, total)
         upto = 0
         for i, edges in enumerate(weights):
@@ -200,9 +208,23 @@ class temporal_walk_rag(graph_rag):
                     if temp_path is not None:
                         retrieved_files = retrieved_files | set(temp_path)
                         break
+                # 下一个edge
                 edge_index += 1
             temp = pd.DataFrame([uuid.UUID(s) for s in list(retrieved_files)], columns=['uuid'])
             sub_data = data.merge(temp, on=['uuid'])
             separate_dict = sub_data.to_dict(orient='records')  # use closet documents
 
+        return separate_dict
+
+    def choose_rw_edges_v2(self, sorted_dictionary, sorted_path_dict, data, tkg, topk):
+        if len(sorted_dictionary) < topk:
+            sub_data = data.merge(pd.DataFrame(list(sorted_dictionary.items()), columns=['uuid', 'in_rw']), on=['uuid'])
+            self.graph = tkg
+            sub_data = sub_data.sort_values(by=['in_rw', 'published time'], ascending=False).drop_duplicates(['url'])
+            separate_dict = sub_data.to_dict(orient='records')
+        else:
+            retrieved_files = list(sorted_dictionary.keys())[:topk]
+            temp = pd.DataFrame(retrieved_files, columns=['uuid'])
+            sub_data = data.merge(temp, on=['uuid'])
+            separate_dict = sub_data.to_dict(orient='records')  # use closet documents
         return separate_dict

@@ -8,6 +8,7 @@ import sys
 import time
 sys.path.insert(0, sys.path[0] + "/../")
 from scripts.utils import *
+import inspect
 
 """
 Notes: noGraph RAG agents are implemented here
@@ -15,7 +16,7 @@ Notes: noGraph RAG agents are implemented here
 
 
 class vanilla_RAG:
-    def __init__(self, client, time_series, business_summary, maper, embeder, preload_doc_path, style):
+    def __init__(self, client, time_series, business_summary, maper, embeder, preload_doc_path, style, language):
         """
         :param client: llama3 instance
         :param time_series: a df with all time series and ground truth
@@ -30,6 +31,7 @@ class vanilla_RAG:
         self.style = style
         self.run_times = []
         self.inference_times = []
+        self.language = language
         if preload_doc_path:
             self.preload_doc = pd.read_pickle(preload_doc_path)
             self.preload_flag = True
@@ -37,7 +39,7 @@ class vanilla_RAG:
             self.preload_doc = None
             self.preload_flag = False
 
-    def rag_reply(self, symbol, date, sub_dataset, topk, backbone):
+    def rag_reply(self, symbol, date, sub_dataset, topk):
         """
         :param backbone:
         :param symbol: the stock symbol we ask
@@ -68,16 +70,15 @@ class vanilla_RAG:
             q_vector = np.array(self.embeder.embed(query))
             scores, retrieved_doc = sub_dataset.get_nearest_examples('embedding', q_vector, k=topk)
             separate_dict = separate_dictionary(retrieved_doc, topk, scores)
-        time_series, ground_truth = self.find_ground_truth(symbol, date)
 
-        retrieval_prompt = generate_prompt_ll3(separate_dict, date, symbol, time_series)
+        time_series, ground_truth = self.find_ground_truth(symbol, date)
+        retrieval_prompt = generate_prompt_ll3(separate_dict, date, symbol, time_series, self.language)
 
         # **********
         end_time = time.time()
         run_time = end_time - start_time
         self.run_times.append(run_time)
         # **********
-
         if self.client == 'no model':
             return self.only_return_retrieved_files(separate_dict, symbol, date, ground_truth)
         elif self.client == 'gpt4o':
@@ -85,7 +86,7 @@ class vanilla_RAG:
         else:
             return self.client_reply(retrieval_prompt, symbol, date, ground_truth, separate_dict)
 
-    def gcs_reply(self, symbol, date, sub_dataset, topk, backbone):
+    def gcs_reply(self, symbol, date, sub_dataset, topk):
         # **********
         start_time = time.time()
         # **********
@@ -98,6 +99,7 @@ class vanilla_RAG:
                 docs = sub_dataset.filter(lambda e: self.retrieve_based_on_given_list(e, doc_list))
                 separate_dict = separate_dictionary(docs.to_dict(), topk)
             except:
+                print('error: no preload files')
                 return self.get_dict(symbol, date, 'ERROR: No preload files',
                                      'N/A',
                                      [{'url': 'empty'}],
@@ -106,9 +108,53 @@ class vanilla_RAG:
             doc_dataset = sub_dataset.filter(lambda x: (x['symbol'] == symbol))
             sort_doc = doc_dataset.sort('published time')
             if len(sort_doc) < topk:
+                print(f'not enough documents for {symbol} on {date}, only {len(sort_doc)} documents')
+                remains = sub_dataset.filter(lambda x: (x['symbol'] != symbol))
+                sort_remains = remains.sort('published time')
+                remain_dict = separate_dictionary(sort_remains[:topk - len(sort_doc)], topk - len(sort_doc))
+                separate_dict = separate_dictionary(sort_doc[:], len(sort_doc)) + remain_dict
+            else:
+                separate_dict = separate_dictionary(sort_doc[-topk:], topk)
+        time_series, ground_truth = self.find_ground_truth(symbol, date)
+        retrieval_prompt = generate_prompt_ll3(separate_dict, date, symbol, time_series, self.language)
+
+        # **********
+        end_time = time.time()
+        run_time = end_time - start_time
+        self.run_times.append(run_time)
+        # **********
+        if self.client == 'no model':
+            return self.only_return_retrieved_files(separate_dict, symbol, date, ground_truth)
+        elif self.client == 'gpt4o':
+            return self.gpt_reply(retrieval_prompt, symbol, date, ground_truth, separate_dict)
+        else:
+            return self.client_reply(retrieval_prompt, symbol, date, ground_truth, separate_dict)
+
+    def random_reply(self, symbol, date, sub_dataset, topk, language):
+        # **********
+        start_time = time.time()
+        # **********
+        if self.preload_flag:
+            line = self.preload_doc[(self.preload_doc['symbol'] == symbol) &
+                                    (self.preload_doc['date'] == date)]['retrieved files']
+            try:
+                assert line.shape[0] == 1
+                doc_list = line.values[0]
+                docs = sub_dataset.filter(lambda e: self.retrieve_based_on_given_list(e, doc_list))
+                separate_dict = separate_dictionary(docs.to_dict(), topk)
+            except:
+                print('no preload files error')
+                return self.get_dict(symbol, date, 'ERROR: No preload files',
+                                     'N/A',
+                                     [{'url': 'empty'}],
+                                     0)
+        else:
+            sort_doc = sub_dataset.sort('published time')
+            if len(sort_doc) < topk:
                 separate_dict = separate_dictionary(sort_doc[:], len(sort_doc))
             else:
-                separate_dict = separate_dictionary(sort_doc[-1 * topk:], topk)
+                indices = random.sample(range(len(sort_doc)), topk)
+                separate_dict = [sort_doc[i] for i in indices]
         time_series, ground_truth = self.find_ground_truth(symbol, date)
         retrieval_prompt = generate_prompt_ll3(separate_dict, date, symbol, time_series)
 
@@ -124,7 +170,7 @@ class vanilla_RAG:
         else:
             return self.client_reply(retrieval_prompt, symbol, date, ground_truth, separate_dict)
 
-    def TempRalm(self, symbol, date, sub_dataset, topk, candidated, backbone):
+    def TempRalm(self, symbol, date, sub_dataset, topk, candidated):
         # **********
         start_time = time.time()
         # **********
@@ -136,7 +182,7 @@ class vanilla_RAG:
         separate_dict = [separate_dict[i] for i in self.Tempralm_index(separate_dict, scores, date, topk)]
         # ---------rerank based on temporal score-----------------------------------------------
         time_series, ground_truth = self.find_ground_truth(symbol, date)
-        retrieval_prompt = generate_prompt_ll3(separate_dict, date, symbol, time_series)
+        retrieval_prompt = generate_prompt_ll3(separate_dict, date, symbol, time_series, self.language)
         # **********
         end_time = time.time()
         run_time = end_time - start_time
@@ -151,11 +197,9 @@ class vanilla_RAG:
 
     def client_reply(self, retrieval_prompt, symbol, date, ground_truth, separate_dict):
         start_time = time.time()
-        # return a df and a dict
         message = self.initialize_message(retrieval_prompt, symbol)
         prompt = self.set_prompt(message)
         prompt_len = len(prompt)
-        # need more tokens for CoT inference
         output = self.client(prompt, max_new_tokens=2000,
                              eos_token_id=[self.client.tokenizer.eos_token_id,
                                            self.client.tokenizer.convert_tokens_to_ids("<|eot_id|>")],
@@ -167,20 +211,21 @@ class vanilla_RAG:
         self.inference_times.append(run_time)
         return self.get_dict(symbol, date, result, ground_truth, separate_dict, prompt_len)
 
+
     def gpt_reply(self, retrieval_prompt, symbol, date, ground_truth, separate_dict):
         """
         new client reply for gpt-4o
         return a df and a dict
         """
         message = self.initialize_message(retrieval_prompt, symbol)
-        message.append({"role": "user", "content": retrieval_prompt})
-        url = "gpt server"
+        # message.append({"role": "user", "content": retrieval_prompt})
+        url = "[GPT service provider]"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": 'api key'
+            "Authorization": "[API Key]"
         }
         data = {
-            "model": "gpt-4o-mini",
+            "model": "gpt-3.5-turbo",
             "messages": message,
             "temperature": 0.1
         }
@@ -198,13 +243,14 @@ class vanilla_RAG:
             result = 'api error'
             prompt_len = 'N/A'
 
+        # print(result)
         return self.get_dict(symbol, date, result, ground_truth, separate_dict, prompt_len)
 
     def find_ground_truth(self, symbol, date):
         ts_dataset = self.time_series[(self.time_series['Date'] == date) & (self.time_series['Symbol'] == symbol)]
         # SPLK close at Mar 15 2024
         if ts_dataset.shape[0] != 1:
-            print('stock series not found or conflict')
+            # print('stock series not found or conflict')
             time_series = 'Please ignore this part'
             ground_truth = 'N/A'
         else:
@@ -218,41 +264,35 @@ class vanilla_RAG:
     def initialize_message(self, retrieval_prompt, symbol):
         symbol_summary = self.business_summary.loc[(0, symbol)]['Summary']
         if self.style == 'direct':
-            return [
+            return [    
                 {"role": "system", "content":
                     """
-                    You will given a series of news with released date and content.
+                    You will be given a series of news with released date and content.
                     Please evaluate given stock's price change ONLY based on the provided news from given perspectives:
-                    1. market share: the percentage of total sales a company captures within its industry.
-                    2. company strategies: long-term plans that guide business in future development.
-                    3. products performance: the quality and profitability of company product or services.
-                    4. industry status: the overall marco situation of the company's sector or industry.
-                    5. investor sentiment: the overall attitude or mood of investors toward the company.
-                    6. stock risk: potential for financial loss due to market volatility, economic changes, or company performance.
-                    7. competitor status: the current position, strategies, strengths, and weaknesses of rival companies within the industry.
-                    8. supplier status: performance, reliability, capacity, and financial health of the company’s suppliers, impacting the supply chain.
-                    9. innovation sustainability: the ability to maintain and develop new, impactful innovations over time.
+                    1. market share
+                    2. company strategies
+                    3. products performance
+                    4. industry status
+                    5. investor sentiment
+                    6. stock risk
+                    7. competitor status
+                    8. supplier status
+                    9. innovation sustainability
                     """},
                 {"role": "system", "content":
                     """
-                    You need to forecast next trading day stock return for stock on date of user given.
-                    The next day stock return is represented by bins "D5+", "D5", "D4", "D3", "D2", "D1", "U1", "U2", "U3", "U4", "U5", "U5+",
-                    where "D5+" means price dropping more than 5%, D5 means price dropping between 4% and 5%,
-                    "D4" means price dropping between 3% and 4%, "U5+" means price rising more than 5%,
+                    You need to forecast next week stock return for stock on date of user given. 
+                    The next day stock return is represented by bins "D5+", "D5", "D4", "D3", "D2", "D1", "U1", "U2", "U3", "U4", "U5", "U5+", 
+                    where "D5+" means price dropping more than 5%, D5 means price dropping between 4% and 5%, 
+                    "D4" means price dropping between 3% and 4%, "U5+" means price rising more than 5%, 
                     "U5" means price rising between 4% and 5%, "D4" means price rising between 3% and 4%, etc.
+                    Based on your observation, give the next trading day stock return the format of bins above between $$ and $$ at the first line.
                     """
-                 },
-                {"role": "system", "content":
-                    """
-                    You will given a series of news with released date and content. Released date is placed between <date> and </date>. Content is placed between <doc> and </doc>.
-                    Please describe what you get from news, summary positive and negative factors about the stock prices.
-                    Based on your observation, give the next trading day stock return the format of bins above between $$ and $$ at the last line.
-                    """
-                 },
+                },
                 {"role": "user",
-                 "content": f"""<Company Summary>{symbol_summary}</Company Summary>\n{retrieval_prompt}"""}
+                "content": f"""<Company Summary>{symbol_summary}</Company Summary>\n{retrieval_prompt}"""}
             ]
-        else:
+        elif self.style == 'indirect':
             return [
                 {"role": "system", "content":
                     """
@@ -269,7 +309,7 @@ class vanilla_RAG:
                     9. innovation sustainability: the ability to maintain and develop new, impactful innovations over time.
                     Analyze based on below instruction and choose ONLY ONE from [positive, neutral, negative] for each perspective.
                     """
-                 },
+                },
                 {
                     "role": "system", "content":
                     """
@@ -280,7 +320,7 @@ class vanilla_RAG:
                     """
                 },
                 {"role": "user",
-                 "content": f"""{retrieval_prompt}"""}
+                "content": f"""{retrieval_prompt}"""}
             ]
 
     def set_prompt(self, messages):
@@ -292,20 +332,30 @@ class vanilla_RAG:
 
     def default_query(self, symbol, date):
         symbol_summary = self.business_summary.loc[(0, symbol)]['Summary']
-        if self.style == 'direct':
-            return f"""I need estimate the stock price at {date} according to the up-to-date news 
-            and information of company {self.maper[symbol]} before {date}. Here is the short business summary:
-            {symbol_summary}
-            """
+        if self.language == 'zh':
+            if self.style == 'direct':
+                return f"""我需要根据{date}之前公司{self.maper[symbol]}的最新新闻和消息，估算该公司在{date}的股票价格。
+                以下是简短的商业摘要：
+                {symbol_summary}
+                """
+            elif self.style == 'indirect':
+                return f"""我需要根据 {date} 之前的最新新闻和信息，从市场份额、公司战略、产品表现、行业地位、投资者情绪、
+                        股票风险、竞争对手状况、供应商状况、创新可持续性等方面对 {self.maper[symbol]} 公司进行评估。以下是简短的商业摘要：
+                        {symbol_summary}"""
         else:
-            return f"""I need evaluate the company {self.maper[symbol]} at {date} from market share, company 
-            strategies, products performance, industry status, investor sentiment, 
-            stock risk, competitor status, supplier status, innovation sustainability, 
-            according to the up-to-date news and information before {date}. Here is the short business summary:
-            {symbol_summary}"""
+            if self.style == 'direct':
+                return f"""I need estimate the stock price at {date} according to the up-to-date news 
+                and information of company {self.maper[symbol]} before {date}. Here is the short business summary:
+                {symbol_summary}
+                """
+            elif self.style == 'indirect':
+                return f"""I need evaluate the company {self.maper[symbol]} at {date} from market share, company 
+                strategies, products performance, industry status, investor sentiment, 
+                stock risk, competitor status, supplier status, innovation sustainability, 
+                according to the up-to-date news and information before {date}. Here is the short business summary:
+                {symbol_summary}"""
 
     def log_time(self, log_file='run_times.log'):
-        # 计算平均运行时间并将其存储到.log文件中
         if self.run_times:
             average_time = sum(self.run_times) / len(self.run_times)
             with open(log_file, 'w') as f:
@@ -315,7 +365,6 @@ class vanilla_RAG:
             print("No run times recorded.")
 
     def log_infer_time(self, log_file='run_times.log'):
-        # 计算平均运行时间并将其存储到.log文件中
         if self.inference_times:
             average_time = sum(self.inference_times) / len(self.inference_times)
             with open(log_file, 'w') as f:

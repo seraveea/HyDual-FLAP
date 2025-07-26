@@ -1,0 +1,102 @@
+Unnamed: 0,symbol,company full name,fuzz name
+0,MSFT,Microsoft Corp,Microsoft
+1,AAPL,Apple Inc,Apple
+2,NVDA,NVIDIA Corp,NVIDIA
+3,AMZN,Amazon.com Inc,Amazon
+4,META,Meta Platforms Inc,Meta Platforms
+5,AVGO,Broadcom Inc,Broadcom
+6,TSLA,Tesla Inc,Tesla
+7,COST,Costco Wholesale Corp,Costco Wholesale
+8,AMD,Advanced Micro Devices Inc,Advanced Micro Devices
+9,GOOGL,Alphabet Inc,Alphabet
+10,GOOG,Alphabet Inc,Alphabet
+11,NFLX,Netflix Inc,Netflix
+12,ADBE,Adobe Inc,Adobe
+13,PEP,PepsiCo Inc,PepsiCo
+14,CSCO,Cisco Systems Inc,Cisco Systems
+15,TMUS,T-Mobile US Inc,T-Mobile US
+16,INTU,Intuit Inc,Intuit
+17,INTC,Intel Corp,Intel
+18,QCOM,QUALCOMM Inc,QUALCOMM
+19,AMAT,Applied Materials Inc,Applied Materials
+20,CMCSA,Comcast Corp,Comcast
+21,TXN,Texas Instruments Inc,Texas Instruments
+22,AMGN,Amgen Inc,Amgen
+23,ISRG,Intuitive Surgical Inc,Intuitive Surgical
+24,HON,Honeywell International Inc,Honeywell International
+25,LRCX,Lam Research Corp,Lam Research
+26,BKNG,Booking Holdings Inc,Booking Holdings
+27,VRTX,Vertex Pharmaceuticals Inc,Vertex Pharmaceuticals
+28,SBUX,Starbucks Corp,Starbucks
+29,REGN,Regeneron Pharmaceuticals Inc,Regeneron Pharmaceuticals
+30,MU,Micron Technology Inc,Micron Technology
+31,ADP,Automatic Data Processing Inc,Automatic Data Processing
+32,MDLZ,Mondelez International Inc,Mondelez International
+33,KLAC,KLA Corp,KLA
+34,ADI,Analog Devices Inc,Analog Devices
+35,PANW,Palo Alto Networks Inc,Palo Alto Networks
+36,GILD,Gilead Sciences Inc,Gilead Sciences
+37,SNPS,Synopsys Inc,Synopsys
+38,ASML,ASML Holding NV,ASML Holding NV
+39,CDNS,Cadence Design Systems Inc,Cadence Design Systems
+40,PDD,PDD Holdings Inc ADR,PDD Holdings  ADR
+41,MELI,MercadoLibre Inc,MercadoLibre
+42,CSX,CSX Corp,CSX
+43,MAR,Marriott International Inc/MD,Marriott International /MD
+44,CRWD,Crowdstrike Holdings Inc,Crowdstrike Holdings
+45,ABNB,Airbnb Inc,Airbnb
+46,MRVL,Marvell Technology Inc,Marvell Technology
+47,NXPI,NXP Semiconductors NV,NXP Semiconductors NV
+48,PYPL,PayPal Holdings Inc,PayPal Holdings
+49,ORLY,O'Reilly Automotive Inc,O'Reilly Automotive
+50,CTAS,Cintas Corp,Cintas
+51,MNST,Monster Beverage Corp,Monster Beverage
+52,WDAY,Workday Inc,Workday
+53,PCAR,PACCAR Inc,PACCAR
+54,ROP,Roper Technologies Inc,Roper Technologies
+55,ADSK,Autodesk Inc,Autodesk
+56,LULU,Lululemon Athletica Inc,Lululemon Athletica
+57,CEG,Constellation Energy Corp,Constellation Energy
+58,FTNT,Fortinet Inc,Fortinet
+59,CPRT,Copart Inc,Copart
+60,ROST,Ross Stores Inc,Ross Stores
+61,ODFL,Old Dominion Freight Line Inc,Old Dominion Freight Line
+62,IDXX,IDEXX Laboratories Inc,IDEXX Laboratories
+63,DASH,DoorDash Inc,DoorDash
+64,MCHP,Microchip Technology Inc,Microchip Technology
+65,DXCM,Dexcom Inc,Dexcom
+66,AEP,American Electric Power Co Inc,American Electric Power Co
+67,PAYX,Paychex Inc,Paychex
+68,CHTR,Charter Communications Inc,Charter Communications
+69,KHC,Kraft Heinz Co/The,Kraft Heinz Co/The
+70,GEHC,GE HealthCare Technologies Inc,GE HealthCare Technologies
+71,FAST,Fastenal Co,Fastenal Co
+72,KDP,Keurig Dr Pepper Inc,Keurig Dr Pepper
+73,CTSH,Cognizant Technology Solutions Corp,Cognizant Technology Solutions
+74,DDOG,Datadog Inc,Datadog
+75,EA,Electronic Arts Inc,Electronic Arts
+76,AZN,AstraZeneca PLC ADR,AstraZeneca PLC ADR
+77,TTD,Trade Desk Inc/The,Trade Desk /The
+78,MRNA,Moderna Inc,Moderna
+79,CSGP,CoStar Group Inc,CoStar Group
+80,EXC,Exelon Corp,Exelon
+81,VRSK,Verisk Analytics Inc,Verisk Analytics
+82,ON,ON Semiconductor Corp,ON Semiconductor
+83,CDW,CDW Corp/DE,CDW /DE
+84,FANG,Diamondback Energy Inc,Diamondback Energy
+85,ZS,Zscaler Inc,Zscaler
+86,TEAM,Atlassian Corp,Atlassian
+87,DLTR,Dollar Tree Inc,Dollar Tree
+88,BIIB,Biogen Inc,Biogen
+89,CCEP,Coca-Cola Europacific Partners PLC,Coca-Cola Europacific Partners PLC
+90,MDB,MongoDB Inc,MongoDB
+91,GFS,GLOBALFOUNDRIES Inc,GLOBALFOUNDRIES
+92,BKR,Baker Hughes Co,Baker Hughes Co
+93,ANSS,ANSYS Inc,ANSYS
+94,XEL,Xcel Energy Inc,Xcel Energy
+95,SPLK,Splunk Inc,Splunk
+96,TTWO,Take-Two Interactive Software Inc,Take-Two Interactive Software
+97,ILMN,Illumina Inc,Illumina
+98,WBD,Warner Bros Discovery Inc,Warner Bros Discovery
+99,WBA,Walgreens Boots Alliance Inc,Walgreens Boots Alliance
+100,SIRI,Sirius XM Holdings Inc,Sirius XM Holdings
