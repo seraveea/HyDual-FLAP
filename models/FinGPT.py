@@ -14,7 +14,7 @@ from scripts.utils import *
 class FinGPT_forecaster(vanilla_RAG):
     def __init__(self, client, time_series, summary, maper, embeder, style, language):
         super().__init__(client, time_series, summary, maper, embeder, preload_doc_path=False, style=style, language=language)
-        self.tokenizer = AutoTokenizer.from_pretrained('/data/user/seraveea/research/hugging_face_cache/llama2-7b-chat-hf')
+        self.tokenizer = AutoTokenizer.from_pretrained('[your llama2 model path]')
 
     def rag_reply(self, symbol, date, sub_dataset, topk, **kwargs):
         query = self.default_query(symbol, date)

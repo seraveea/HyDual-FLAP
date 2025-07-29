@@ -12,8 +12,8 @@ import os
 
 tqdm.pandas()
 
-os.environ["HF_HOME"] = "/data/user/seraveea/research/hugging_face_cache"
-huggingface_cache_path = "/data/user/seraveea/research/hugging_face_cache"
+os.environ["HF_HOME"] = "your hugging_face_cache"
+huggingface_cache_path = "your hugging_face_cache"
 os.environ['HF_HUB_OFFLINE'] = '1'
 
 def main(myargs):

@@ -6,7 +6,7 @@ import argparse
 
 
 def ll3_instance(args):
-    model_dir = "/data/user/seraveea/research/hugging_face_cache/Meta-Llama-3-8B-Instruct_hf"
+    model_dir = "your llama3 model path"
     pipeline = transformers.pipeline(
         "text-generation",
         model=model_dir,

@@ -25,7 +25,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
 def ll3_instance(args):
-    model_dir = "/data/user/seraveea/research/hugging_face_cache/Meta-Llama-3-8B-Instruct_hf"
+    model_dir = "your llama3 model path"
     pipeline = transformers.pipeline(
         "text-generation",
         model=model_dir,
@@ -33,13 +33,6 @@ def ll3_instance(args):
         device_map=args.device,
     )
     return pipeline
-
-
-def deepseek_instance(args):
-    with open('scripts/DeepSeek_API.txt', 'r') as file:
-        api_key = file.read().strip()
-    client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
-    return client
 
 
 def main(args):
@@ -110,9 +103,9 @@ def parse_args():
     parser.add_argument('--candidated', default=20)
     parser.add_argument('--backbone', default='llama3',
                         help='several mode, llama3/GPT/FinPTForecaster/deepseek/no model')
-    parser.add_argument('--result_path', default='output/nograph_summary_GCS_Q1.pkl',
+    parser.add_argument('--result_path', default='output/result.pkl',
                         help='the path of saving llm reply result')
-    parser.add_argument('--doc_path', default='output/retrieval_only/nograph_summary_GCS_doc_Q1.pkl',
+    parser.add_argument('--doc_path', default='output/result_doc.pkl',
                         help='the path of saving retrieved file list')
     parser.add_argument('--source_path', default='data/new_llama3/nasdaq_summary24.pkl',
                         help='the path of doc pools')
@@ -120,7 +113,7 @@ def parse_args():
     parser.add_argument('--summary_path', default='data/ndx100_business_summary.pkl',
                         help='the path of static knowledge')
     parser.add_argument('--language', default='zh', choices=['zh', 'en'])
-    parser.add_argument('--runtime_recording_path', default='logs/gcs_run_time.log')
+    parser.add_argument('--runtime_recording_path', default='logs/run_time.log')
     parser.add_argument('--device', default="cuda:0")
     parser.add_argument('--topk', default=10)
     parser.add_argument('--style', default='direct', help='direct, indirect3')

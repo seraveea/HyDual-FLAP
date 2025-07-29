@@ -99,9 +99,9 @@ def parse_args():
     parser.add_argument('--lookback', default=1)
     parser.add_argument('--backbone', default='llama3',
                         help='several mode, llama3/GPT/FinPTForecaster/deepseek/chatqa/no model')
-    parser.add_argument('--result_path', default='output/nograph_summary_GCS_Q1.pkl',
+    parser.add_argument('--result_path', default='output/result.pkl',
                         help='the path of saving llm reply result')
-    parser.add_argument('--doc_path', default='output/retrieval_only/nograph_summary_GCS_doc_Q1.pkl',
+    parser.add_argument('--doc_path', default='output/retrieval_only/result_doc.pkl',
                         help='the path of saving retrieved file list')
     parser.add_argument('--source_path', default='data/new_llama3/nasdaq_summary24.pkl',
                         help='the path of doc pools')
@@ -109,10 +109,10 @@ def parse_args():
     parser.add_argument('--summary_path', default='data/ndx100_business_summary.pkl',
                         help='the path of static knowledge')
     parser.add_argument('--language', default='zh', choices=['zh', 'en'])
-    parser.add_argument('--runtime_recording_path', default='logs/gcs_run_time.log')
+    parser.add_argument('--runtime_recording_path', default='logs/run_time.log')
     parser.add_argument('--device', default="cuda:0")
     parser.add_argument('--topk', default=10)
-    parser.add_argument('--style', default='direct', help='direct, indirect3')
+    parser.add_argument('--style', default='direct', help='direct, indirect')
     parser.add_argument('--preload_doc_path', default=False)
 
     args = parser.parse_args()
